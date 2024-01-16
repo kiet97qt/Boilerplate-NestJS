@@ -10,21 +10,38 @@ import {
 	SerializeOptions,
 	UseGuards,
 	UploadedFiles,
+	Query,
+	ParseIntPipe,
+	Req,
 } from '@nestjs/common';
+import {
+	ApiBearerAuth,
+	ApiBody,
+	ApiConsumes,
+	ApiOperation,
+	ApiTags,
+} from '@nestjs/swagger';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
+
+// INNER
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import MongooseClassSerializerInterceptor from 'src/interceptors/mongoose-class-serializer.interceptor';
+
+// OUTER
 import { JwtAccessTokenGuard } from '@modules/auth/guards/jwt-access-token.guard';
 import { Roles } from 'src/decorators/roles.decorator';
 import { RolesGuard } from '@modules/auth/guards/roles.guard';
 import { USER_ROLE } from '@modules/user-roles/entities/user-role.entity';
-import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { ApiDocsPagination } from 'src/decorators/swagger-form-data.decorator';
+import { RequestWithUser } from 'src/types/requests.type';
+import { PERIOD_TYPE } from '@modules/daily-check-in/dto/get-daily-check-in.dto';
 
 @Controller('users')
 @ApiTags('users')
+@ApiBearerAuth('token')
 @UseInterceptors(MongooseClassSerializerInterceptor(User))
 export class UsersController {
 	constructor(private readonly users_service: UsersService) {}
@@ -45,11 +62,28 @@ export class UsersController {
 		excludePrefixes: ['first', 'last'],
 	})
 	@Get()
+	@ApiDocsPagination(User.name)
 	@Roles(USER_ROLE.USER)
 	@UseGuards(RolesGuard)
 	@UseGuards(JwtAccessTokenGuard)
-	findAll() {
-		return this.users_service.findAll();
+	findAll(
+		@Query('offset', ParseIntPipe) offset: number,
+		@Query('limit', ParseIntPipe) limit: number,
+	) {
+		return this.users_service.findAll({}, { offset, limit });
+	}
+
+	@Get('daily-check-in')
+	@UseGuards(JwtAccessTokenGuard)
+	async getCheckInData(
+		@Req() request: RequestWithUser,
+		@Query('type') type: PERIOD_TYPE,
+		@Query('year') year: string,
+	) {
+		return await this.users_service.getCheckInData(
+			request.user._id.toString(),
+			{ type, year },
+		);
 	}
 
 	@Get(':id')
@@ -89,6 +123,12 @@ export class UsersController {
 	updateStudentCard(@UploadedFiles() files: Array<Express.Multer.File>) {
 		console.log(files);
 		return files.map((file) => file.originalname);
+	}
+
+	@Post('daily-check-in')
+	@UseGuards(JwtAccessTokenGuard)
+	updateDailyCheckIn(@Req() { user }: RequestWithUser) {
+		return this.users_service.updateDailyCheckIn(user, new Date());
 	}
 
 	@Patch(':id')

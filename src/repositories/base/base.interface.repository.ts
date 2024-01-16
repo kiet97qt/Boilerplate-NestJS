@@ -7,11 +7,9 @@ export interface BaseRepositoryInterface<T> {
 
 	findOneByCondition(condition?: object, projection?: string): Promise<T>;
 
-	findAll(
-		condition: object,
-		projection?: string | object,
-		options?: object,
-	): Promise<FindAllResponse<T>>;
+	findAll(condition: object, options?: object): Promise<FindAllResponse<T>>;
+
+	findOneAndUpdate(condition: object, dto: Partial<T>): Promise<T>;
 
 	update(id: string, dto: Partial<T>): Promise<T>;
 

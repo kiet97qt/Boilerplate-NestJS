@@ -9,7 +9,7 @@ import { UserRole } from '@modules/user-roles/entities/user-role.entity';
 
 @Injectable()
 export class UsersRepository
-	extends BaseRepositoryAbstract<UserDocument>
+	extends BaseRepositoryAbstract<User>
 	implements UsersRepositoryInterface
 {
 	constructor(
@@ -21,14 +21,21 @@ export class UsersRepository
 
 	async findAllWithSubFields(
 		condition: FilterQuery<UserDocument>,
-		projection?: string,
-		populate?: string[] | PopulateOptions | PopulateOptions[],
+		options: {
+			projection?: string;
+			populate?: string[] | PopulateOptions | PopulateOptions[];
+			offset?: number;
+			limit?: number;
+		},
 	): Promise<FindAllResponse<UserDocument>> {
 		const [count, items] = await Promise.all([
 			this.user_model.count({ ...condition, deleted_at: null }),
 			this.user_model
-				.find({ ...condition, deleted_at: null }, projection)
-				.populate(populate),
+				.find({ ...condition, deleted_at: null }, options?.projection || '', {
+					skip: options.offset || 0,
+					limit: options.limit || 10,
+				})
+				.populate(options.populate),
 		]);
 		return {
 			count,
@@ -39,6 +46,7 @@ export class UsersRepository
 	async getUserWithRole(user_id: string): Promise<User> {
 		return await this.user_model
 			.findById(user_id, '-password')
-			.populate([{ path: 'role', transform: (role: UserRole) => role?.name }]);
+			.populate([{ path: 'role', transform: (role: UserRole) => role?.name }])
+			.exec();
 	}
 }

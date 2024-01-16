@@ -11,6 +11,11 @@ import { CollectionsModule } from '@modules/collections/collections.module';
 import { UserRolesModule } from '@modules/user-roles/user-roles.module';
 import { TopicsModule } from '@modules/topics/topics.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { GlobalExceptionFilter } from './exception-filters/global-exception.filter';
+import { CustomThrottlerGuard } from './guards/throttler.guard';
+import { BullModule } from '@nestjs/bullmq';
+import { ThrottlerModule } from '@nestjs/throttler';
 @Module({
 	imports: [
 		ConfigModule.forRoot({
@@ -48,8 +53,33 @@ import { AuthModule } from './modules/auth/auth.module';
 		FlashCardsModule,
 		CollectionsModule,
 		AuthModule,
+		BullModule.forRootAsync({
+			inject: [ConfigService],
+			useFactory: async (configService: ConfigService) => ({
+				connection: {
+					host: configService.get('REDIS_HOST'),
+					port: configService.get('REDIS_PORT'),
+				},
+			}),
+		}),
+		ThrottlerModule.forRoot([
+			{
+				ttl: 60,
+				limit: 10,
+			},
+		]),
 	],
 	controllers: [AppController],
-	providers: [AppService],
+	providers: [
+		AppService,
+		{
+			provide: APP_FILTER,
+			useClass: GlobalExceptionFilter,
+		},
+		{
+			provide: APP_GUARD,
+			useClass: CustomThrottlerGuard,
+		},
+	],
 })
 export class AppModule {}
