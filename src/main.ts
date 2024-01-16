@@ -7,7 +7,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { ValidationError } from 'class-validator';
 import { ERRORS_DICTIONARY } from './constraints/error-dictionary.constraint';
-
+import { DatabaseConfig } from './configs/configuration.config';
 async function bootstrap() {
 	const logger = new Logger(bootstrap.name);
 	const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -29,5 +29,7 @@ async function bootstrap() {
 	await app.listen(config_service.get('PORT'), () =>
 		logger.log(`Application running on port ${config_service.get('PORT')}`),
 	);
+	const database_env = config_service.get<DatabaseConfig>('database');
+	logger.debug(database_env);
 }
 bootstrap();
